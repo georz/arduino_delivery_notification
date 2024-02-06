@@ -14,8 +14,6 @@ const unsigned int MAX_RETRY_WIFI_RECONNECT = 5;
 
 const unsigned int DELAY_LOOP = 60000;
 
-const unsigned int PREPARE_CAPTURE_COUNT = 3;
-
 void connectWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -47,15 +45,6 @@ void connectWiFi() {
     }
   }
   //Serial.println(WiFi.localIP());
-}
-
-esp_err_t prepareCapture() {
-  int i = 0;
-  while (i < PREPARE_CAPTURE_COUNT) {
-    camera_fb_t *fb = esp_camera_fb_get();
-    esp_camera_fb_return(fb);
-    i++;
-  }  
 }
 
 esp_err_t getCapture(httpd_req_t *req) {
@@ -119,7 +108,8 @@ bool initCamera(void) {
   config.pixel_format = PIXFORMAT_JPEG;
   config.frame_size   = FRAMESIZE_XGA;
   config.jpeg_quality = 10;
-  config.fb_count     = 2;
+  config.fb_count     = 3;
+  config.grab_mode    = CAMERA_GRAB_LATEST; // https://github.com/espressif/esp32-camera/issues/406
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -140,15 +130,17 @@ bool initCamera(void) {
 void setup() {
   //Serial.begin(115200);
 
+  // To avoid Wi-Fi issues, force GPIO0 to 0 while CH552 outputs 5V with its internal pullup.
+  // https://twitter.com/wakwak_koba/status/1553162622479974400
+  //pinMode(0, OUTPUT);
+  //digitalWrite(0, HIGH);
+
   bat_init();
   bat_disable_output();
 
   connectWiFi();
   initCamera();
   startWebServer();
-
-  // 予備撮影（最初の数枚に不具合が発生することがあるため）
-  prepareCapture();
 }
 
 void loop() {
